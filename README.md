@@ -21,7 +21,31 @@ A focused GPLv3 fork of [Pegasus Frontend](https://github.com/mmatyas/pegasus-fr
 - GOG via Heroic / Dark1HGL (any install path, including Proton) plus native `~/GOG Games`
 - Config under `~/.config/chiron`
 
-For Dark1HGL/Heroic AppImages off PATH, set `providers.gog.launch_helper` to the binary. Details and release notes: [CHANGELOG.md](CHANGELOG.md).
+## Install
+
+```sh
+chmod +x Chiron-*-x86_64.AppImage
+./Chiron-*-x86_64.AppImage
+```
+
+Grab the AppImage from [Releases](https://github.com/dark1ltg/Chiron/releases/latest).
+
+## GOG
+
+Reads `~/GOG Games` and Heroic/Dark1HGL `gog_store/installed.json`, then launches with `heroic://launch/gog/<appName>` (PATH, desktop entry, common AppImage dirs, or Flatpak).
+
+```
+providers.gog.directories: /path/to/extra/gog/root
+providers.gog.launch_helper: /path/to/Dark1HGL.AppImage
+```
+
+## Build
+
+```sh
+VERSION=0.2.0 ./scripts/build-appimage.sh   # → dist/Chiron-*-x86_64.AppImage
+```
+
+From source: `git submodule update --init && cmake -B build && cmake --build build` (Qt 5.15+, SDL2). CI builds on tag push / `workflow_dispatch` via [`.github/workflows/release-appimage.yml`](.github/workflows/release-appimage.yml).
 
 ## License
 
