@@ -4,6 +4,16 @@
 
 It is a focused fork of [Pegasus Frontend](https://github.com/mmatyas/pegasus-frontend): same theming model and providers, shipped only as a **Linux x86_64 AppImage**, with Linux GOG discovery fixed for Heroic-style installs.
 
+## Screenshots
+
+Real Chiron UI (default theme) with a filler demo library:
+
+![Library grid](etc/promo/screenshot-library.png)
+
+![Game details](etc/promo/screenshot-details.png)
+
+![Collection bar](etc/promo/screenshot-collections.png)
+
 ## What you get
 
 - Browse and launch your game library from a couch-friendly UI (Pegasus themes work)
