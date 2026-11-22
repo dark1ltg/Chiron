@@ -1,0 +1,61 @@
+name: Release AppImage
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - 'chiron-*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  TOOLS_URL: https://github.com/mmatyas/pegasus-frontend/releases/download/alpha1
+  QT_TARGET: x11-static
+  QT_VERSION: qt51512
+  SDL_TARGET: x11-jammy
+  SDL_VERSION: "2.32.10"
+
+jobs:
+  appimage:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: APT deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            g++ ninja-build curl ca-certificates file desktop-file-utils libfuse2 \
+            libasound2-dev libgl1-mesa-dev libgstreamer-plugins-base1.0-dev \
+            libpulse-dev libudev-dev \
+            libfontconfig1-dev libfreetype-dev libharfbuzz-dev \
+            libxcb-glx0-dev libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev \
+            libxcb-randr0-dev libxcb-render-util0-dev libxcb-shape0-dev libxcb-sync-dev \
+            libxcb-util-dev libxcb-xfixes0-dev libxcb-xinerama0-dev \
+            libxi-dev libxkbcommon-dev libxkbcommon-x11-dev libzstd-dev \
+            libx11-dev libxext-dev libxrender-dev libdbus-1-dev libssl-dev \
+            libjpeg-dev libpng-dev libicu-dev libinput-dev
+
+      - name: Build AppImage
+        run: ./scripts/build-appimage.sh
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Chiron-x86_64-AppImage
+          path: dist/Chiron-*.AppImage
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Chiron-*-x86_64.AppImage
+          generate_release_notes: true
+          fail_on_unmatched_files: true

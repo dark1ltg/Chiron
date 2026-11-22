@@ -37,7 +37,27 @@ providers.gog.launch_helper: /path/to/Dark1HGL.AppImage
 
 GOG store metadata (art, description, genres) still uses the public GOG product APIs, keyed by GOG ID — same as upstream.
 
-## Building
+## Releases (Linux x86_64 AppImage)
+
+The supported release artifact is a single AppImage:
+
+```sh
+chmod +x Chiron-*-x86_64.AppImage
+./Chiron-*-x86_64.AppImage
+```
+
+Build one locally (downloads upstream’s static Qt 5.15.12 + SDL2 toolchains into `/opt`):
+
+```sh
+./scripts/build-appimage.sh
+# → dist/Chiron-<version>-x86_64.AppImage
+```
+
+Optional: `VERSION=0.1.0 ./scripts/build-appimage.sh`
+
+GitHub Actions workflow [`.github/workflows/release-appimage.yml`](.github/workflows/release-appimage.yml) builds the AppImage on tag push (`v*` / `chiron-*`) or `workflow_dispatch`, and attaches it to a GitHub Release for tags.
+
+## Building from source
 
 Build dependencies match upstream Pegasus (Qt 5.15+, QML, Multimedia, SVG, SQL/SQLite, SDL2 or Qt Gamepad). See the [upstream build guide](https://pegasus-frontend.org/docs/dev/build) for details.
 
