@@ -60,10 +60,10 @@ int main(int argc, char *argv[])
     QSettings::setDefaultFormat(QSettings::IniFormat);
 
     QGuiApplication app(argc, argv);
-    app.setApplicationName(QStringLiteral("pegasus-frontend"));
+    app.setApplicationName(QStringLiteral("chiron"));
     app.setApplicationVersion(QStringLiteral(GIT_REVISION));
-    app.setOrganizationName(QStringLiteral("pegasus-frontend"));
-    app.setOrganizationDomain(QStringLiteral("pegasus-frontend.org"));
+    app.setOrganizationName(QStringLiteral("chiron"));
+    app.setOrganizationDomain(QStringLiteral("dark1ltg.github.io"));
     app.setWindowIcon(QIcon(QStringLiteral(":/icon.png")));
 
     if (!request_runtime_permissions())
@@ -113,9 +113,8 @@ backend::CliArgs handle_cli_args(QGuiApplication& app)
 
     QCommandLineParser argparser;
     argparser.setApplicationDescription(CMDMSG(
-        "\nPegasus is a graphical frontend for browsing your game library (especially\n"
-        "retro games) and launching them from one place. It's focusing on customization,\n"
-        "cross platform support (including embedded devices) and high performance."));
+        "\nChiron is a Linux AppImage fork of Pegasus Frontend for browsing your game\n"
+        "library (especially retro games) and launching them from one place."));
 
     const QCommandLineOption arg_portable = add_cli_option(argparser,
         QStringLiteral("portable"),
@@ -139,7 +138,7 @@ backend::CliArgs handle_cli_args(QGuiApplication& app)
 
     const QCommandLineOption arg_menu_appclose = add_cli_option(argparser,
         QStringLiteral("disable-menu-appclose"),
-        CMDMSG("Hides the closing Pegasus entry in the main menu"));
+        CMDMSG("Hides the closing Chiron entry in the main menu"));
 
     const QCommandLineOption arg_menu_settings = add_cli_option(argparser,
         QStringLiteral("disable-menu-settings"),

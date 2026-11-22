@@ -95,21 +95,21 @@ endif()
 
 if(PEGASUS_ON_X11)
     if(INSTALL_ICONDIR)
-        install(FILES platform/linux/icons/16/org.pegasus_frontend.Pegasus.png DESTINATION "${INSTALL_ICONDIR}/16x16/apps/")
-        install(FILES platform/linux/icons/32/org.pegasus_frontend.Pegasus.png DESTINATION "${INSTALL_ICONDIR}/32x32/apps/")
-        install(FILES platform/linux/icons/48/org.pegasus_frontend.Pegasus.png DESTINATION "${INSTALL_ICONDIR}/48x48/apps/")
-        install(FILES platform/linux/icons/64/org.pegasus_frontend.Pegasus.png DESTINATION "${INSTALL_ICONDIR}/64x64/apps/")
-        install(FILES platform/linux/icons/128/org.pegasus_frontend.Pegasus.png DESTINATION "${INSTALL_ICONDIR}/128x128/apps/")
+        install(FILES platform/linux/icons/16/org.dark1ltg.Chiron.png DESTINATION "${INSTALL_ICONDIR}/16x16/apps/")
+        install(FILES platform/linux/icons/32/org.dark1ltg.Chiron.png DESTINATION "${INSTALL_ICONDIR}/32x32/apps/")
+        install(FILES platform/linux/icons/48/org.dark1ltg.Chiron.png DESTINATION "${INSTALL_ICONDIR}/48x48/apps/")
+        install(FILES platform/linux/icons/64/org.dark1ltg.Chiron.png DESTINATION "${INSTALL_ICONDIR}/64x64/apps/")
+        install(FILES platform/linux/icons/128/org.dark1ltg.Chiron.png DESTINATION "${INSTALL_ICONDIR}/128x128/apps/")
     endif()
     if(INSTALL_DESKTOPDIR AND INSTALL_BINDIR)
         configure_file(
-            platform/linux/org.pegasus_frontend.Pegasus.desktop.in
-            org.pegasus_frontend.Pegasus.desktop
+            platform/linux/org.dark1ltg.Chiron.desktop.in
+            org.dark1ltg.Chiron.desktop
         )
-        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.pegasus_frontend.Pegasus.desktop" DESTINATION "${INSTALL_DESKTOPDIR}")
+        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.dark1ltg.Chiron.desktop" DESTINATION "${INSTALL_DESKTOPDIR}")
     endif()
     if(INSTALL_APPSTREAMDIR)
-        install(FILES platform/linux/org.pegasus_frontend.Pegasus.metainfo.xml DESTINATION "${INSTALL_APPSTREAMDIR}")
+        install(FILES platform/linux/org.dark1ltg.Chiron.metainfo.xml DESTINATION "${INSTALL_APPSTREAMDIR}")
     endif()
 endif()
 

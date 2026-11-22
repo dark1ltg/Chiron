@@ -14,11 +14,11 @@ unix:!macx {
     target.path = $${INSTALL_BINDIR}
 
     !isEmpty(INSTALL_ICONDIR) {
-        icon16.files += platform/linux/icons/16/org.pegasus_frontend.Pegasus.png
-        icon32.files += platform/linux/icons/32/org.pegasus_frontend.Pegasus.png
-        icon48.files += platform/linux/icons/48/org.pegasus_frontend.Pegasus.png
-        icon64.files += platform/linux/icons/64/org.pegasus_frontend.Pegasus.png
-        icon128.files += platform/linux/icons/128/org.pegasus_frontend.Pegasus.png
+        icon16.files += platform/linux/icons/16/org.dark1ltg.Chiron.png
+        icon32.files += platform/linux/icons/32/org.dark1ltg.Chiron.png
+        icon48.files += platform/linux/icons/48/org.dark1ltg.Chiron.png
+        icon64.files += platform/linux/icons/64/org.dark1ltg.Chiron.png
+        icon128.files += platform/linux/icons/128/org.dark1ltg.Chiron.png
 
         icon16.path = $${INSTALL_ICONDIR}/16x16/apps/
         icon32.path = $${INSTALL_ICONDIR}/32x32/apps/
@@ -30,8 +30,8 @@ unix:!macx {
         OTHER_FILES += $${icon16.files} $${icon32.files} $${icon48.files} $${icon64.files} $${icon128.files}
     }
     !isEmpty(INSTALL_DESKTOPDIR) {
-        desktop_file.input = platform/linux/org.pegasus_frontend.Pegasus.desktop.qmake.in
-        desktop_file.output = $${OUT_PWD}/org.pegasus_frontend.Pegasus.desktop
+        desktop_file.input = platform/linux/org.dark1ltg.Chiron.desktop.qmake.in
+        desktop_file.output = $${OUT_PWD}/org.dark1ltg.Chiron.desktop
         OTHER_FILES += $${desktop_file.input}
 
         QMAKE_SUBSTITUTES += desktop_file
@@ -40,7 +40,7 @@ unix:!macx {
         INSTALLS += desktop
     }
     !isEmpty(INSTALL_APPSTREAMDIR) {
-        appstream.files += platform/linux/org.pegasus_frontend.Pegasus.metainfo.xml
+        appstream.files += platform/linux/org.dark1ltg.Chiron.metainfo.xml
         appstream.path = $${INSTALL_APPSTREAMDIR}
         OTHER_FILES += $${appstream.files}
         INSTALLS += appstream

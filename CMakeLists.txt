@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(pegasus-frontend
-    DESCRIPTION "Cross platform, customizable graphical frontend for launching games"
-    HOMEPAGE_URL "https://pegasus-frontend.org/"
+project(chiron
+    DESCRIPTION "Linux AppImage frontend for launching games (Pegasus fork)"
+    HOMEPAGE_URL "https://github.com/dark1ltg/Chiron"
     LANGUAGES CXX
 )
 

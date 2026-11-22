@@ -1,11 +1,11 @@
 [Desktop Entry]
 Version=1.1
 Type=Application
-Name=Pegasus
+Name=Chiron
 GenericName=Emulator Frontend
-Comment=A cross platform, customizable graphical frontend for launching emulators and managing your game collection.
+Comment=A Linux AppImage frontend for launching emulators and managing your game collection (Pegasus fork).
 Exec=${INSTALL_BINDIR}/pegasus-fe
-Icon=org.pegasus_frontend.Pegasus
+Icon=org.dark1ltg.Chiron
 Terminal=false
 Categories=Game;Emulator;
 Keywords=emulator;retro;game;videogame;video game;player;
