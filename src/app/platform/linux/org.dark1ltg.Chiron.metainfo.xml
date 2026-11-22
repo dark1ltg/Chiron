@@ -7,9 +7,17 @@
   <summary>Linux game library frontend — AppImage for emulators and GOG (Heroic/Proton)</summary>
   <description>
     <p>Chiron is a Linux game library frontend. One AppImage to browse your collection and launch emulators, native games, and GOG titles—including Windows/Proton installs managed by Heroic or Dark1HGL.</p>
-    <p>It is a focused fork of Pegasus Frontend: same theming model and providers, shipped only as a Linux x86_64 AppImage, with Linux GOG discovery fixed for Heroic-style installs. Native GOG Games start.sh support is kept.</p>
+    <p>Shipped only as a Linux x86_64 AppImage. Linux GOG discovery supports Heroic / Dark1HGL installs (including Proton) and native ~/GOG Games start.sh layouts. Themes remain compatible with the Pegasus Frontend format.</p>
   </description>
   <content_rating type="oars-1.1" />
+  <releases>
+    <release version="0.2.0" date="2026-11-22">
+      <description>
+        <p>Hardened Linux GOG/Heroic discovery and launch, AppImage packaging, and first public Chiron release notes.</p>
+      </description>
+      <url>https://github.com/dark1ltg/Chiron/releases/tag/v0.2.0</url>
+    </release>
+  </releases>
 
   <launchable type="desktop-id">org.dark1ltg.Chiron.desktop</launchable>
   <provides>
@@ -25,7 +33,9 @@
     <keyword>retro</keyword>
     <keyword>game</keyword>
     <keyword>frontend</keyword>
-    <keyword>player</keyword>
+    <keyword>gog</keyword>
+    <keyword>heroic</keyword>
+    <keyword>appimage</keyword>
   </keywords>
 
   <url type="homepage">https://github.com/dark1ltg/Chiron</url>

@@ -2,7 +2,10 @@
 
 **Chiron is a Linux game library frontend.** One AppImage to browse your collection and launch emulators, native games, and GOG titles—including Windows/Proton installs managed by Heroic or Dark1HGL.
 
-It is a focused fork of [Pegasus Frontend](https://github.com/mmatyas/pegasus-frontend): same theming model and providers, shipped only as a **Linux x86_64 AppImage**, with Linux GOG discovery fixed for Heroic-style installs.
+Homepage / source: [github.com/dark1ltg/Chiron](https://github.com/dark1ltg/Chiron)  
+Latest release: [Releases](https://github.com/dark1ltg/Chiron/releases)
+
+Chiron is a focused GPLv3 fork of [Pegasus Frontend](https://github.com/mmatyas/pegasus-frontend). Themes and library providers remain compatible; **this project ships only a Linux x86_64 AppImage**, with Linux GOG discovery fixed for Heroic-style installs.
 
 ## Screenshots
 
@@ -16,81 +19,87 @@ Real Chiron UI (default theme) with a filler demo library:
 
 ## What you get
 
-- Browse and launch your game library from a couch-friendly UI (Pegasus themes work)
-- Emulator and multi-source library support inherited from Pegasus
-- **GOG on Linux that actually finds Heroic / Dark1HGL games** (any install path / drive) and launches them through Heroic so Proton works
+- Couch-friendly game library browser and launcher
+- Emulator and multi-source library support (Pegasus-compatible themes and metadata)
+- **GOG on Linux that finds Heroic / Dark1HGL games** (any install path / drive) and launches them through Heroic so Proton works
 - Native `~/GOG Games` + `start.sh` installs still work
-- Single downloadable AppImage — no Flatpak/deb/rpm/Windows/macOS release
+- Single downloadable AppImage — no Flatpak / deb / rpm / Windows / macOS release from this project
 
 ## Who it’s for
 
-Linux players who already use Heroic or Dark1HGL for GOG (especially Proton/Windows builds) and want a Pegasus-style frontend without fighting missing GOG imports.
+Linux players who already use Heroic or Dark1HGL for GOG (especially Proton/Windows builds) and want a themable frontend without missing GOG imports.
 
 ## Supported release
 
 | Platform | Status |
 |---|---|
-| Linux x86_64 AppImage | **Supported** |
+| Linux x86_64 AppImage | **Supported** — see [Releases](https://github.com/dark1ltg/Chiron/releases) |
 | Windows / macOS / Android / Flatpak / deb / rpm | Not supported / not shipped |
 
-Upstream multi-platform code may still exist in the tree; do not expect builds or docs for those targets from this fork.
+Upstream multi-platform code may still exist in the tree; do not expect builds or docs for those targets from Chiron.
 
-## GOG on Linux
+## Install
 
-Chiron’s GOG provider will:
-
-- Keep scanning `~/GOG Games` (and `providers.gog.directories`) for native `start.sh` games
-- Also read Heroic / Dark1HGL `gog_store/installed.json` (any `install_path`, including other drives)
-- Launch Heroic-managed titles with  
-  `heroic --no-gui heroic://launch/gog/<appName>`  
-  (or Flatpak / a custom `providers.gog.launch_helper`)
-
-Optional settings (same style as other Pegasus providers):
-
-```
-providers.gog.directories: /path/to/extra/gog/root
-providers.gog.launch_helper: /path/to/Dark1HGL.AppImage
-```
-
-`launch_helper` is recommended for Dark1HGL/Heroic AppImages. Chiron also searches PATH, `*.desktop` files, and common AppImage folders (`~/Applications`, `~/AppImages`, …), then Flatpak. Heroic launches strip AppImage library overrides so Proton gets a clean host environment.
-
-GOG store metadata (art, description, genres) still uses the public GOG product APIs, keyed by GOG ID — same as upstream.
-
-## Releases (Linux x86_64 AppImage)
-
-The supported release artifact is a single AppImage:
+1. Download `Chiron-*-x86_64.AppImage` from the [latest release](https://github.com/dark1ltg/Chiron/releases/latest)
+2. Make it executable and run:
 
 ```sh
 chmod +x Chiron-*-x86_64.AppImage
 ./Chiron-*-x86_64.AppImage
 ```
 
-Build one locally (downloads upstream’s static Qt 5.15.12 + SDL2 toolchains into `/opt`):
+Config and cache live under the `chiron` application name (for example `~/.config/chiron`, `~/.cache/chiron`).
+
+## GOG on Linux
+
+Chiron’s GOG provider will:
+
+- Scan `~/GOG Games` (and `providers.gog.directories`) for native `start.sh` games
+- Read Heroic / Dark1HGL `gog_store/installed.json` (any `install_path`, including other drives)
+- Launch Heroic-managed titles headlessly, for example:  
+  `env -u LD_LIBRARY_PATH … <heroic> --no-gui heroic://launch/gog/<appName>`
+
+Optional settings:
+
+```
+providers.gog.directories: /path/to/extra/gog/root
+providers.gog.launch_helper: /path/to/Dark1HGL.AppImage
+```
+
+`launch_helper` is recommended for Dark1HGL/Heroic AppImages. Chiron also searches PATH, `*.desktop` files, and common AppImage folders (`~/Applications`, `~/AppImages`, …), then Flatpak. Launches strip AppImage library overrides so Proton gets a clean host environment.
+
+GOG store metadata (art, description, genres) uses the public GOG product APIs, keyed by GOG ID, cached under `~/.cache/chiron/gog/`.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes. Current version: **0.2.0**.
+
+## Build the AppImage
 
 ```sh
 ./scripts/build-appimage.sh
 # → dist/Chiron-<version>-x86_64.AppImage
 ```
 
-Optional: `VERSION=0.1.0 ./scripts/build-appimage.sh`
+Optional: `VERSION=0.2.0 ./scripts/build-appimage.sh`
 
-GitHub Actions workflow [`.github/workflows/release-appimage.yml`](.github/workflows/release-appimage.yml) builds the AppImage on tag push (`v*` / `chiron-*`) or `workflow_dispatch`, and attaches it to a GitHub Release for tags.
+The script downloads a static Qt 5.15.12 + SDL2 toolchain into `/opt` (same upstream tool archives Pegasus uses for Linux builds).
+
+GitHub Actions workflow [`.github/workflows/release-appimage.yml`](.github/workflows/release-appimage.yml) builds the AppImage on tag push (`v*` / `chiron-*`), on `workflow_dispatch`, or when [`.github/release-request`](.github/release-request) is updated, and attaches it to a GitHub Release.
 
 ## Building from source
 
-Build dependencies match upstream Pegasus (Qt 5.15+, QML, Multimedia, SVG, SQL/SQLite, SDL2 or Qt Gamepad). See the [upstream build guide](https://pegasus-frontend.org/docs/dev/build) for details.
+Dependencies: Qt 5.15+ (QML, Multimedia, SVG, SQL/SQLite), plus SDL2 or Qt Gamepad.
 
 ```sh
 git submodule update --init
 mkdir build && cd build
-cmake ..   # or: qmake ..
+cmake ..
 cmake --build .
 ```
 
-Config/cache directories use the `chiron` application name (for example `~/.config/chiron`).
-
 ## License
 
-GPLv3, same as Pegasus Frontend. See [LICENSE.md](LICENSE.md).
+GPLv3. See [LICENSE.md](LICENSE.md).
 
-This project is not affiliated with Pegasus Frontend or GOG. “Pegasus” and related marks belong to their respective owners; this fork is renamed under GPLv3 §7.
+Chiron is not affiliated with Pegasus Frontend or GOG. “Pegasus” and related marks belong to their respective owners; this fork is renamed under GPLv3 §7.

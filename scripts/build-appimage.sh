@@ -120,17 +120,25 @@ resolve_version() {
   local tag
   tag="$(git -C "$ROOT" describe --tags --exact-match 2>/dev/null || true)"
   if [[ -n "$tag" ]]; then
-    printf '%s\n' "${tag#v}"
+    local cleaned="${tag#v}"
+    cleaned="${cleaned#chiron-}"
+    printf '%s\n' "$cleaned"
     return
   fi
-  tag="$(git -C "$ROOT" describe --tags --match 'chiron-*' --abbrev=0 2>/dev/null || true)"
+  if [[ -f "$ROOT/VERSION" ]]; then
+    tr -d '[:space:]' < "$ROOT/VERSION"
+    return
+  fi
+  tag="$(git -C "$ROOT" describe --tags --match 'v*' --match 'chiron-*' --abbrev=0 2>/dev/null || true)"
   if [[ -n "$tag" ]]; then
-    local short
+    local short cleaned
     short="$(git -C "$ROOT" rev-parse --short HEAD)"
-    printf '%s-%s\n' "${tag#chiron-}" "$short"
+    cleaned="${tag#v}"
+    cleaned="${cleaned#chiron-}"
+    printf '%s-%s\n' "$cleaned" "$short"
     return
   fi
-  printf '0.1.0-%s\n' "$(git -C "$ROOT" rev-parse --short HEAD)"
+  printf '0.2.0-%s\n' "$(git -C "$ROOT" rev-parse --short HEAD)"
 }
 
 package_appimage() {

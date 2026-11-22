@@ -5,7 +5,16 @@ on:
     tags:
       - 'v*'
       - 'chiron-*'
+    branches:
+      - main
+    paths:
+      - '.github/release-request'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version without v prefix (e.g. 0.2.0)'
+        required: true
+        default: '0.2.0'
 
 permissions:
   contents: write
@@ -27,6 +36,28 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      - name: Resolve version
+        id: ver
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ inputs.version }}"
+          elif [[ -f .github/release-request ]]; then
+            VERSION="$(tr -d '[:space:]' < .github/release-request)"
+          elif [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            VERSION="${VERSION#chiron-}"
+          else
+            VERSION="$(tr -d '[:space:]' < VERSION 2>/dev/null || true)"
+          fi
+          if [[ -z "${VERSION}" ]]; then
+            echo "Could not resolve release version" >&2
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Resolved version ${VERSION}"
+
       - name: APT deps
         run: |
           sudo apt-get update
@@ -43,6 +74,8 @@ jobs:
             libjpeg-dev libpng-dev libicu-dev libinput-dev
 
       - name: Build AppImage
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
         run: ./scripts/build-appimage.sh
 
       - name: Upload workflow artifact
@@ -52,10 +85,13 @@ jobs:
           path: dist/Chiron-*.AppImage
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: Chiron ${{ steps.ver.outputs.version }}
+          body_path: CHANGELOG.md
           files: |
             dist/Chiron-*-x86_64.AppImage
-          generate_release_notes: true
           fail_on_unmatched_files: true
+          make_latest: true
