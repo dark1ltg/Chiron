@@ -380,9 +380,14 @@ bool is_flatpak_heroic_root(const QString& root)
 
 QString launch_prefix_for_root(const HeroicLaunchers& launchers, const QString& root)
 {
-    if (is_flatpak_heroic_root(root) && !launchers.flatpak_prefix.isEmpty())
-        return launchers.flatpak_prefix;
-    return launchers.native_prefix;
+    if (is_flatpak_heroic_root(root)) {
+        if (!launchers.flatpak_prefix.isEmpty())
+            return launchers.flatpak_prefix;
+        return launchers.native_prefix;
+    }
+    if (!launchers.native_prefix.isEmpty())
+        return launchers.native_prefix;
+    return launchers.flatpak_prefix;
 }
 
 QStringList heroic_config_roots()
