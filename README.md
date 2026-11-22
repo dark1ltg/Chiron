@@ -64,7 +64,7 @@ ln -s ~/.config/pegasus-frontend/themes/SomeTheme ~/.config/chiron/themes/SomeTh
 ## Build
 
 ```sh
-VERSION=0.2.1 ./scripts/build-appimage.sh   # → dist/Chiron-*-x86_64.AppImage
+VERSION=0.2.2 ./scripts/build-appimage.sh   # → dist/Chiron-*-x86_64.AppImage
 ```
 
 From source: `git submodule update --init && cmake -B build && cmake --build build` (Qt 5.15+, SDL2). CI builds on tag push / `workflow_dispatch` via [`.github/workflows/release-appimage.yml`](.github/workflows/release-appimage.yml).

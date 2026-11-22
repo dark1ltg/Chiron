@@ -66,12 +66,14 @@ MenuScreen {
                     text: qsTr("About") + api.tr
                 }
                 Text {
-                    property string programInfo: qsTr("Pegasus Frontend, version <tt>%1</tt> (%2)")
+                    property string programInfo: qsTr("Chiron, version <tt>%1</tt> (%2)")
                         .arg(Internal.meta.gitRevision)
                         .arg(Internal.meta.gitDate)
                         + api.tr
 
-                    text: programInfo + "<br>Copyright \u00a9 2017-2020 Mátyás Mustoha"
+                    text: programInfo
+                        + "<br>Based on Pegasus Frontend"
+                        + "<br>Copyright \u00a9 2017-2020 Mátyás Mustoha"
                     color: "#eee"
                     font.pixelSize: bodyFontSize
                     font.family: globalFonts.sans

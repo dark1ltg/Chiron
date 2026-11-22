@@ -2,6 +2,13 @@
 
 All notable changes to **Chiron** are documented here.
 
+## [0.2.2] — 2026-11-22
+
+### Changed
+
+- Boot/splash screen uses Chiron branding (centaur mark + wordmark) instead of Pegasus
+- Window title and common UI strings say Chiron (exit, about, settings, empty/theme errors)
+
 ## [0.2.1] — 2026-11-22
 
 ### Fixed

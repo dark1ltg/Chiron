@@ -61,6 +61,7 @@ int main(int argc, char *argv[])
 
     QGuiApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("chiron"));
+    app.setApplicationDisplayName(QStringLiteral("Chiron"));
     app.setApplicationVersion(QStringLiteral(GIT_REVISION));
     app.setOrganizationName(QStringLiteral("chiron"));
     app.setOrganizationDomain(QStringLiteral("dark1ltg.github.io"));
