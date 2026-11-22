@@ -113,8 +113,8 @@ backend::CliArgs handle_cli_args(QGuiApplication& app)
 
     QCommandLineParser argparser;
     argparser.setApplicationDescription(CMDMSG(
-        "\nChiron is a Linux AppImage fork of Pegasus Frontend for browsing your game\n"
-        "library (especially retro games) and launching them from one place."));
+        "\nChiron is a Linux game library frontend. Browse and launch emulators, native\n"
+        "games, and GOG titles (including Heroic/Dark1HGL + Proton) from one AppImage."));
 
     const QCommandLineOption arg_portable = add_cli_option(argparser,
         QStringLiteral("portable"),

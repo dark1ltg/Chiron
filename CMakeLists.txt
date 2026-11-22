@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(chiron
-    DESCRIPTION "Linux AppImage frontend for launching games (Pegasus fork)"
+    DESCRIPTION "Linux game library frontend — AppImage for emulators and GOG (Heroic/Proton)"
     HOMEPAGE_URL "https://github.com/dark1ltg/Chiron"
     LANGUAGES CXX
 )

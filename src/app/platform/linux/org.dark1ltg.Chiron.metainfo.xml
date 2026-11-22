@@ -4,10 +4,10 @@
   <name>Chiron</name>
   <metadata_license>CC-BY-SA-3.0</metadata_license>
   <project_license>GPL-3.0+</project_license>
-  <summary>Linux AppImage frontend for launching emulators (Pegasus fork)</summary>
+  <summary>Linux game library frontend — AppImage for emulators and GOG (Heroic/Proton)</summary>
   <description>
-    <p>Chiron is a Linux AppImage-focused fork of Pegasus Frontend for browsing your game library and launching emulators and store-installed games from one place.</p>
-    <p>This fork adds Linux GOG discovery for Heroic/Dark1HGL installs (including Proton/Windows titles) while keeping native GOG Games start.sh support.</p>
+    <p>Chiron is a Linux game library frontend. One AppImage to browse your collection and launch emulators, native games, and GOG titles—including Windows/Proton installs managed by Heroic or Dark1HGL.</p>
+    <p>It is a focused fork of Pegasus Frontend: same theming model and providers, shipped only as a Linux x86_64 AppImage, with Linux GOG discovery fixed for Heroic-style installs. Native GOG Games start.sh support is kept.</p>
   </description>
   <content_rating type="oars-1.1" />
 
