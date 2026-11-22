@@ -52,6 +52,8 @@ providers.gog.directories: /path/to/extra/gog/root
 providers.gog.launch_helper: /path/to/Dark1HGL.AppImage
 ```
 
+`launch_helper` is recommended for Dark1HGL/Heroic AppImages. Chiron also searches PATH, `*.desktop` files, and common AppImage folders (`~/Applications`, `~/AppImages`, …), then Flatpak. Heroic launches strip AppImage library overrides so Proton gets a clean host environment.
+
 GOG store metadata (art, description, genres) still uses the public GOG product APIs, keyed by GOG ID — same as upstream.
 
 ## Releases (Linux x86_64 AppImage)

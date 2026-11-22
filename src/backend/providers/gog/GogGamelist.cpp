@@ -26,6 +26,7 @@
 #include "utils/MoveOnly.h"
 #include "utils/PathTools.h"
 
+#include <QDir>
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
@@ -33,10 +34,13 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRegularExpression>
+#include <QSet>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QStringBuilder>
 #include <QTextStream>
+
+#include <algorithm>
 
 
 namespace {
@@ -59,22 +63,141 @@ struct GogEntry {
     MOVE_ONLY(GogEntry)
 };
 
+bool is_heroic_launch(const QString& launch_cmd)
+{
+    return launch_cmd.contains(QLatin1String("heroic://"));
+}
+
 bool invalid_entry(const GogEntry& entry)
 {
-    return entry.name.isEmpty()
-        || entry.launch_cmd.isEmpty()
-        || entry.exe.isEmpty()
-        || !QFileInfo::exists(entry.exe);
+    if (entry.name.isEmpty() || entry.launch_cmd.isEmpty() || entry.exe.isEmpty())
+        return true;
+
+    // Heroic entries may point at an unmounted multi-drive install_path; still list them.
+    if (is_heroic_launch(entry.launch_cmd))
+        return false;
+
+    return !QFileInfo::exists(entry.exe);
 }
 
 #ifdef Q_OS_LINUX
 constexpr QLatin1String HEROIC_FLATPAK_PKG("com.heroicgameslauncher.hgl");
 
-QString find_heroic_launch_prefix(const HashMap<QString, std::vector<QString>>& options)
+QString normalize_install_path(QString path)
+{
+    path.replace(QLatin1Char('\\'), QLatin1Char('/'));
+    return path;
+}
+
+bool json_truthy(const QJsonValue& value)
+{
+    if (value.isBool())
+        return value.toBool(false);
+    if (value.isDouble())
+        return value.toInt(0) != 0;
+    if (value.isString()) {
+        const QString s = value.toString().trimmed().toLower();
+        return s == QLatin1String("true") || s == QLatin1String("1") || s == QLatin1String("yes");
+    }
+    return false;
+}
+
+QString wrap_clean_env(const QString& command)
+{
+    // Drop AppImage/Qt library overrides so Heroic/Proton use the host toolchain.
+    return QStringLiteral(
+               "env -u LD_LIBRARY_PATH -u LD_PRELOAD -u QT_PLUGIN_PATH "
+               "-u QT_QPA_PLATFORM_PLUGIN_PATH -u APPDIR -u APPIMAGE -u ARGV0 "
+               "-u PYTHONHOME -u PYTHONPATH -u PERLLIB ")
+        % command;
+}
+
+QStringList appimage_search_roots()
+{
+    QStringList roots {
+        paths::homePath() + QStringLiteral("/Applications"),
+        paths::homePath() + QStringLiteral("/AppImages"),
+        paths::homePath() + QStringLiteral("/bin"),
+        paths::homePath() + QStringLiteral("/.local/bin"),
+        QStringLiteral("/opt"),
+        paths::homePath() + QStringLiteral("/Downloads"),
+        paths::homePath() + QStringLiteral("/Desktop"),
+    };
+    roots.removeDuplicates();
+    return roots;
+}
+
+bool name_looks_like_heroic(const QString& filename)
+{
+    const QString lower = filename.toLower();
+    return lower.contains(QLatin1String("heroic"))
+        || lower.contains(QLatin1String("dark1hgl"))
+        || lower.contains(QLatin1String("dark1-hgl"));
+}
+
+QString find_heroic_appimage()
+{
+    for (const QString& root : appimage_search_roots()) {
+        QDir dir(root);
+        if (!dir.exists())
+            continue;
+
+        const QStringList files = dir.entryList(QStringList { QStringLiteral("*.AppImage") },
+                                                QDir::Files | QDir::Readable);
+        for (const QString& file : files) {
+            if (!name_looks_like_heroic(file))
+                continue;
+            const QString path = dir.absoluteFilePath(file);
+            if (QFileInfo(path).isExecutable())
+                return path;
+        }
+    }
+    return {};
+}
+
+QString find_heroic_desktop_exec()
+{
+    const QStringList desktop_dirs = QStandardPaths::standardLocations(QStandardPaths::ApplicationsLocation);
+    for (const QString& dir_path : desktop_dirs) {
+        QDirIterator it(dir_path, QStringList { QStringLiteral("*.desktop") }, QDir::Files);
+        while (it.hasNext()) {
+            const QString path = it.next();
+            const QString base = it.fileName().toLower();
+            if (!name_looks_like_heroic(base))
+                continue;
+
+            QFile file(path);
+            if (!file.open(QFile::ReadOnly | QFile::Text))
+                continue;
+
+            QTextStream stream(&file);
+            stream.setCodec("UTF-8");
+            QString line;
+            while (stream.readLineInto(&line)) {
+                if (!line.startsWith(QLatin1String("Exec=")))
+                    continue;
+                QString exec = line.mid(5).trimmed();
+                // Strip desktop field codes and trailing args noise; keep the binary path.
+                exec.replace(QRegularExpression(QStringLiteral("%[fFuUdDnNickvm]")), QString());
+                const QStringList parts = ::utils::tokenize_command(exec);
+                if (parts.isEmpty())
+                    break;
+                const QString candidate = parts.front();
+                if (QFileInfo::exists(candidate) || !QStandardPaths::findExecutable(candidate).isEmpty())
+                    return candidate.contains(QLatin1Char('/'))
+                        ? candidate
+                        : QStandardPaths::findExecutable(candidate);
+            }
+        }
+    }
+    return {};
+}
+
+QString find_heroic_launch_prefix(const HashMap<QString, std::vector<QString>>& options, const QString& log_tag)
 {
     const auto helper_it = options.find(QLatin1String("launch_helper"));
     if (helper_it != options.cend() && !helper_it->second.empty() && !helper_it->second.front().isEmpty())
-        return helper_it->second.front();
+        return ::utils::escape_command(helper_it->second.front());
 
     const QStringList candidates {
         QStringLiteral("heroic"),
@@ -88,14 +211,28 @@ QString find_heroic_launch_prefix(const HashMap<QString, std::vector<QString>>& 
             return ::utils::escape_command(found);
     }
 
+    const QString desktop_exec = find_heroic_desktop_exec();
+    if (!desktop_exec.isEmpty())
+        return ::utils::escape_command(desktop_exec);
+
+    const QString appimage = find_heroic_appimage();
+    if (!appimage.isEmpty())
+        return ::utils::escape_command(appimage);
+
+    // Prefer Flatpak only after native/AppImage lookups fail.
     const QString flatpak_cfg = paths::homePath()
         % QLatin1String("/.var/app/")
         % HEROIC_FLATPAK_PKG
         % QLatin1String("/config/heroic/");
-    if (QFileInfo::exists(flatpak_cfg))
+    const QString flatpak_bin = QStandardPaths::findExecutable(QStringLiteral("flatpak"));
+    if (QFileInfo::exists(flatpak_cfg) && !flatpak_bin.isEmpty())
         return QLatin1String("flatpak run ") % HEROIC_FLATPAK_PKG;
 
-    return QStringLiteral("heroic");
+    Log::warning(log_tag, LOGMSG(
+        "Heroic/Dark1HGL launcher not found on PATH, desktop entries, common AppImage dirs, or Flatpak. "
+        "Set providers.gog.launch_helper to your Heroic/Dark1HGL binary or AppImage. "
+        "Skipping Heroic GOG import."));
+    return {};
 }
 
 QStringList heroic_config_roots()
@@ -118,45 +255,115 @@ QStringList heroic_config_roots()
     return roots;
 }
 
-QString read_goggame_info_name(const QString& install_path, QString* o_id = nullptr)
+// Shallow only: install root + one directory level. Avoid walking Proton/Wine trees (#10).
+QString read_goggame_info_name(const QString& install_path, const QString& preferred_id, QString* o_id)
 {
-    QDirIterator it(
-        install_path,
-        QStringList { QStringLiteral("goggame-*.info") },
-        QDir::Files,
-        QDirIterator::Subdirectories);
+    QFileInfoList info_files;
 
-    while (it.hasNext()) {
-        it.next();
-        QFile file(it.filePath());
-        if (!file.open(QFile::ReadOnly | QFile::Text))
+    const QDir root(install_path);
+    info_files += root.entryInfoList(QStringList { QStringLiteral("goggame-*.info") }, QDir::Files);
+
+    const QFileInfoList subdirs = root.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const QFileInfo& subdir : subdirs) {
+        // Skip obvious Proton/Wine noise directories.
+        const QString base = subdir.fileName();
+        if (base.compare(QLatin1String("dosdevices"), Qt::CaseInsensitive) == 0
+            || base.compare(QLatin1String("drive_c"), Qt::CaseInsensitive) == 0
+            || base.compare(QLatin1String("pfx"), Qt::CaseInsensitive) == 0
+            || base.startsWith(QLatin1Char('.')))
             continue;
 
-        const QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
-        if (!doc.isObject())
-            continue;
-
-        const QJsonObject root = doc.object();
-        const QString name = root.value(QLatin1String("name")).toString();
-        if (o_id && o_id->isEmpty()) {
-            const QString game_id = root.value(QLatin1String("gameId")).toString();
-            if (!game_id.isEmpty())
-                *o_id = game_id;
-        }
-        if (!name.isEmpty())
-            return name;
+        info_files += QDir(subdir.absoluteFilePath())
+                          .entryInfoList(QStringList { QStringLiteral("goggame-*.info") }, QDir::Files);
     }
 
-    return {};
+    if (info_files.isEmpty())
+        return {};
+
+    auto parse_info = [](const QFileInfo& finfo, QString* name_out, QString* id_out) -> bool {
+        QFile file(finfo.absoluteFilePath());
+        if (!file.open(QFile::ReadOnly | QFile::Text))
+            return false;
+        const QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+        if (!doc.isObject())
+            return false;
+        const QJsonObject obj = doc.object();
+        *name_out = obj.value(QLatin1String("name")).toString();
+        *id_out = obj.value(QLatin1String("gameId")).toString();
+        if (id_out->isEmpty())
+            *id_out = obj.value(QLatin1String("rootGameId")).toString();
+        return !name_out->isEmpty() || !id_out->isEmpty();
+    };
+
+    // Prefer goggame-<preferred_id>.info when available.
+    if (!preferred_id.isEmpty()) {
+        for (const QFileInfo& finfo : info_files) {
+            if (finfo.completeBaseName() == QLatin1String("goggame-") + preferred_id
+                || finfo.fileName() == QLatin1String("goggame-") + preferred_id + QLatin1String(".info")) {
+                QString name;
+                QString id;
+                if (parse_info(finfo, &name, &id)) {
+                    if (o_id && o_id->isEmpty() && !id.isEmpty())
+                        *o_id = id;
+                    if (!name.isEmpty())
+                        return name;
+                }
+            }
+        }
+    }
+
+    // Prefer root-level infos over nested; prefer gameId == preferred_id.
+    std::sort(info_files.begin(), info_files.end(), [&install_path](const QFileInfo& a, const QFileInfo& b) {
+        const bool a_root = QFileInfo(a.absolutePath()) == QFileInfo(install_path);
+        const bool b_root = QFileInfo(b.absolutePath()) == QFileInfo(install_path);
+        if (a_root != b_root)
+            return a_root;
+        return a.fileName() < b.fileName();
+    });
+
+    QString fallback_name;
+    for (const QFileInfo& finfo : info_files) {
+        QString name;
+        QString id;
+        if (!parse_info(finfo, &name, &id))
+            continue;
+
+        if (!preferred_id.isEmpty() && id == preferred_id) {
+            if (o_id && o_id->isEmpty())
+                *o_id = id;
+            if (!name.isEmpty())
+                return name;
+        }
+
+        if (fallback_name.isEmpty() && !name.isEmpty()) {
+            fallback_name = name;
+            if (o_id && o_id->isEmpty() && !id.isEmpty())
+                *o_id = id;
+        }
+    }
+
+    return fallback_name;
+}
+
+QString build_heroic_launch_cmd(const QString& launch_prefix, const QString& app_name)
+{
+    const QString raw = launch_prefix
+        % QLatin1String(" --no-gui heroic://launch/gog/")
+        % app_name;
+    return wrap_clean_env(raw);
 }
 
 void append_heroic_entries(
     std::vector<GogEntry>& entries,
-    const HashMap<QString, std::vector<QString>>& options)
+    const HashMap<QString, std::vector<QString>>& options,
+    const QString& log_tag)
 {
-    const QString launch_prefix = find_heroic_launch_prefix(options);
+    const QString launch_prefix = find_heroic_launch_prefix(options, log_tag);
+    if (launch_prefix.isEmpty())
+        return;
+
     const QStringList roots = heroic_config_roots();
-    QStringList seen_keys;
+    QSet<QString> seen_keys;
 
     for (const QString& root : roots) {
         const QString installed_path = root + QStringLiteral("/gog_store/installed.json");
@@ -165,64 +372,111 @@ void append_heroic_entries(
             continue;
 
         const QJsonDocument doc = QJsonDocument::fromJson(installed_file.readAll());
-        if (!doc.isObject())
+        QJsonArray installed;
+        if (doc.isObject())
+            installed = doc.object().value(QLatin1String("installed")).toArray();
+        else if (doc.isArray())
+            installed = doc.array();
+        else
             continue;
 
-        const QJsonArray installed = doc.object().value(QLatin1String("installed")).toArray();
         for (const QJsonValue& value : installed) {
             const QJsonObject obj = value.toObject();
             if (obj.isEmpty())
                 continue;
-            if (obj.value(QLatin1String("is_dlc")).toBool(false))
+            if (json_truthy(obj.value(QLatin1String("is_dlc"))))
                 continue;
 
             const QString app_name = obj.value(QLatin1String("appName")).toString();
-            const QString install_path = obj.value(QLatin1String("install_path")).toString();
-            if (app_name.isEmpty() || install_path.isEmpty() || !QFileInfo::exists(install_path))
+            QString install_path = normalize_install_path(obj.value(QLatin1String("install_path")).toString());
+            if (app_name.isEmpty() || install_path.isEmpty())
                 continue;
 
             const QString dedupe_key = app_name % QChar('|') % install_path;
             if (seen_keys.contains(dedupe_key))
                 continue;
-            seen_keys.append(dedupe_key);
+            seen_keys.insert(dedupe_key);
+
+            const bool path_missing = !QFileInfo::exists(install_path);
+            if (path_missing) {
+                Log::warning(log_tag, LOGMSG(
+                    "Heroic GOG install for `%1` is missing at `%2` (drive unmounted?). "
+                    "Keeping the entry; launch may fail until the path is available.")
+                    .arg(app_name, install_path));
+            }
 
             QString id = app_name;
-            QString name = read_goggame_info_name(install_path, &id);
+            QString name;
+            if (!path_missing)
+                name = read_goggame_info_name(install_path, app_name, &id);
             if (name.isEmpty())
                 name = QFileInfo(install_path).fileName();
             if (name.isEmpty())
                 name = app_name;
 
             QString exe = install_path;
-            const QString relative_exe = obj.value(QLatin1String("executable")).toString();
-            if (!relative_exe.isEmpty()) {
+            const QString relative_exe = normalize_install_path(obj.value(QLatin1String("executable")).toString());
+            if (!path_missing && !relative_exe.isEmpty()) {
                 const QString candidate = install_path + QChar('/') + relative_exe;
                 if (QFileInfo::exists(candidate))
                     exe = candidate;
             }
-
-            // Launch through Heroic/Dark1HGL so Proton/Windows GOG titles work.
-            const QString launch_cmd = launch_prefix
-                % QLatin1String(" --no-gui heroic://launch/gog/")
-                % app_name;
+            // Stable existing path for unmounted installs so registration still has an identity.
+            if (path_missing)
+                exe = installed_path;
 
             entries.emplace_back(
                 std::move(id),
                 std::move(name),
                 std::move(exe),
-                launch_cmd,
+                build_heroic_launch_cmd(launch_prefix, app_name),
                 install_path);
         }
     }
 }
+
+void dedupe_entries_by_gog_id(std::vector<GogEntry>& entries)
+{
+    // One entry per GOG id. Prefer Heroic launches (Proton path) over native start.sh.
+    HashMap<QString, size_t> id_index;
+    std::vector<GogEntry> out;
+    out.reserve(entries.size());
+
+    for (GogEntry& entry : entries) {
+        if (entry.id.isEmpty()) {
+            out.emplace_back(std::move(entry));
+            continue;
+        }
+
+        const auto it = id_index.find(entry.id);
+        if (it == id_index.end()) {
+            id_index.emplace(entry.id, out.size());
+            out.emplace_back(std::move(entry));
+            continue;
+        }
+
+        GogEntry& existing = out[it->second];
+        const bool entry_heroic = is_heroic_launch(entry.launch_cmd);
+        const bool existing_heroic = is_heroic_launch(existing.launch_cmd);
+        if (entry_heroic && !existing_heroic) {
+            existing = std::move(entry);
+        }
+        // else keep existing (already Heroic, or both native)
+    }
+
+    entries = std::move(out);
+}
 #endif // Q_OS_LINUX
 
-std::vector<GogEntry> find_game_entries(const HashMap<QString, std::vector<QString>>& options)
+std::vector<GogEntry> find_game_entries(
+    const HashMap<QString, std::vector<QString>>& options,
+    const QString& log_tag)
 {
     std::vector<GogEntry> entries;
 
 #ifdef Q_OS_WIN
     Q_UNUSED(options);
+    Q_UNUSED(log_tag);
 
     QSettings reg_base(QStringLiteral("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\GOG.com\\Games"),
                        QSettings::NativeFormat);
@@ -300,7 +554,10 @@ std::vector<GogEntry> find_game_entries(const HashMap<QString, std::vector<QStri
         }
     }
 
-    append_heroic_entries(entries, options);
+    append_heroic_entries(entries, options, log_tag);
+    dedupe_entries_by_gog_id(entries);
+#else
+    Q_UNUSED(log_tag);
 #endif
 
 
@@ -352,7 +609,7 @@ HashMap<QString, model::Game*> Gamelist::find(
     model::Collection& collection,
     providers::SearchContext& sctx) const
 {
-    const std::vector<GogEntry> gogentries = find_game_entries(options);
+    const std::vector<GogEntry> gogentries = find_game_entries(options, m_log_tag);
     Log::info(m_log_tag, LOGMSG("%1 games found").arg(QString::number(gogentries.size())));
 
     return register_game_entries(gogentries, collection, sctx);
