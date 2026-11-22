@@ -61,6 +61,8 @@ jobs:
       - name: APT deps
         run: |
           sudo apt-get update
+          # libunwind-dev first — gstreamer pulls it and can fail on unmet deps otherwise
+          sudo apt-get install -y libunwind-dev
           sudo apt-get install -y \
             g++ ninja-build curl ca-certificates file desktop-file-utils libfuse2 \
             libasound2-dev libgl1-mesa-dev libgstreamer-plugins-base1.0-dev \
