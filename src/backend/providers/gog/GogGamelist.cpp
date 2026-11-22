@@ -39,6 +39,7 @@
 #include <QStandardPaths>
 #include <QStringBuilder>
 #include <QTextStream>
+#include <QUrl>
 
 #include <algorithm>
 
@@ -83,6 +84,11 @@ bool invalid_entry(const GogEntry& entry)
 #ifdef Q_OS_LINUX
 constexpr QLatin1String HEROIC_FLATPAK_PKG("com.heroicgameslauncher.hgl");
 
+struct HeroicLaunchers {
+    QString native_prefix;
+    QString flatpak_prefix;
+};
+
 QString normalize_install_path(QString path)
 {
     path.replace(QLatin1Char('\\'), QLatin1Char('/'));
@@ -100,6 +106,67 @@ bool json_truthy(const QJsonValue& value)
         return s == QLatin1String("true") || s == QLatin1String("1") || s == QLatin1String("yes");
     }
     return false;
+}
+
+bool looks_numeric_gog_id(const QString& id)
+{
+    if (id.isEmpty())
+        return false;
+    for (const QChar ch : id) {
+        if (!ch.isDigit())
+            return false;
+    }
+    return true;
+}
+
+bool is_wrapper_token(const QString& token)
+{
+    const QString base = QFileInfo(token).fileName().toLower();
+    static const QSet<QString> wrappers {
+        QStringLiteral("env"),
+        QStringLiteral("sh"),
+        QStringLiteral("bash"),
+        QStringLiteral("dash"),
+        QStringLiteral("zsh"),
+        QStringLiteral("fish"),
+        QStringLiteral("csh"),
+        QStringLiteral("tcsh"),
+        QStringLiteral("nice"),
+        QStringLiteral("nohup"),
+        QStringLiteral("ionice"),
+        QStringLiteral("time"),
+        QStringLiteral("timeout"),
+        QStringLiteral("command"),
+        QStringLiteral("builtin"),
+        QStringLiteral("exec"),
+    };
+    return wrappers.contains(base);
+}
+
+int score_heroic_candidate(const QString& path_or_name)
+{
+    const QString lower = QFileInfo(path_or_name).fileName().toLower();
+    int score = 0;
+    if (lower.contains(QLatin1String("dark1hgl")) || lower.contains(QLatin1String("dark1-hgl")))
+        score += 1000;
+    else if (lower.contains(QLatin1String("heroic")))
+        score += 100;
+    return score;
+}
+
+QString resolve_helper_path(const QString& raw)
+{
+    if (raw.isEmpty())
+        return {};
+
+    const QFileInfo fi(raw);
+    if (fi.isAbsolute() || raw.contains(QLatin1Char('/'))) {
+        if (fi.exists() && fi.isFile() && fi.isExecutable())
+            return fi.absoluteFilePath();
+        return {};
+    }
+
+    return QStandardPaths::findExecutable(raw);
 }
 
 QString wrap_clean_env(const QString& command)
@@ -137,6 +204,10 @@ bool name_looks_like_heroic(const QString& filename)
 
 QString find_heroic_appimage()
 {
+    QString best_path;
+    int best_score = -1;
+    qint64 best_mtime = -1;
+
     for (const QString& root : appimage_search_roots()) {
         QDir dir(root);
         if (!dir.exists())
@@ -148,15 +219,28 @@ QString find_heroic_appimage()
             if (!name_looks_like_heroic(file))
                 continue;
             const QString path = dir.absoluteFilePath(file);
-            if (QFileInfo(path).isExecutable())
-                return path;
+            const QFileInfo fi(path);
+            if (!fi.isExecutable())
+                continue;
+
+            const int score = score_heroic_candidate(file);
+            const qint64 mtime = fi.lastModified().toMSecsSinceEpoch();
+            if (score > best_score || (score == best_score && mtime > best_mtime)) {
+                best_path = path;
+                best_score = score;
+                best_mtime = mtime;
+            }
         }
     }
-    return {};
+    return best_path;
 }
 
 QString find_heroic_desktop_exec()
 {
+    QString best_path;
+    int best_score = -1;
+    qint64 best_mtime = -1;
+
     const QStringList desktop_dirs = QStandardPaths::standardLocations(QStandardPaths::ApplicationsLocation);
     for (const QString& dir_path : desktop_dirs) {
         QDirIterator it(dir_path, QStringList { QStringLiteral("*.desktop") }, QDir::Files);
@@ -182,57 +266,123 @@ QString find_heroic_desktop_exec()
                 const QStringList parts = ::utils::tokenize_command(exec);
                 if (parts.isEmpty())
                     break;
-                const QString candidate = parts.front();
-                if (QFileInfo::exists(candidate) || !QStandardPaths::findExecutable(candidate).isEmpty())
-                    return candidate.contains(QLatin1Char('/'))
-                        ? candidate
-                        : QStandardPaths::findExecutable(candidate);
+
+                for (const QString& part : parts) {
+                    if (part.isEmpty() || is_wrapper_token(part))
+                        continue;
+                    // Skip env KEY=VALUE assignments.
+                    if (part.contains(QLatin1Char('=')) && !part.contains(QLatin1Char('/')))
+                        continue;
+
+                    QString candidate = part;
+                    if (!candidate.contains(QLatin1Char('/')))
+                        candidate = QStandardPaths::findExecutable(candidate);
+                    if (candidate.isEmpty() || !QFileInfo::exists(candidate))
+                        continue;
+
+                    const QFileInfo fi(candidate);
+                    if (!fi.isExecutable())
+                        continue;
+
+                    int score = score_heroic_candidate(candidate);
+                    if (name_looks_like_heroic(fi.fileName()))
+                        score += 50;
+                    const qint64 mtime = fi.lastModified().toMSecsSinceEpoch();
+                    if (score > best_score || (score == best_score && mtime > best_mtime)) {
+                        best_path = candidate;
+                        best_score = score;
+                        best_mtime = mtime;
+                    }
+                }
+                break;
             }
         }
     }
-    return {};
+    return best_path;
 }
 
-QString find_heroic_launch_prefix(const HashMap<QString, std::vector<QString>>& options, const QString& log_tag)
+HeroicLaunchers find_heroic_launchers(const HashMap<QString, std::vector<QString>>& options, const QString& log_tag)
 {
-    const auto helper_it = options.find(QLatin1String("launch_helper"));
-    if (helper_it != options.cend() && !helper_it->second.empty() && !helper_it->second.front().isEmpty())
-        return ::utils::escape_command(helper_it->second.front());
+    HeroicLaunchers launchers;
 
-    const QStringList candidates {
-        QStringLiteral("heroic"),
-        QStringLiteral("dark1hgl"),
-        QStringLiteral("Dark1HGL"),
-        QStringLiteral("Heroic"),
-    };
-    for (const QString& name : candidates) {
-        const QString found = QStandardPaths::findExecutable(name);
-        if (!found.isEmpty())
-            return ::utils::escape_command(found);
+    const auto helper_it = options.find(QLatin1String("launch_helper"));
+    if (helper_it != options.cend() && !helper_it->second.empty() && !helper_it->second.front().isEmpty()) {
+        const QString resolved = resolve_helper_path(helper_it->second.front());
+        if (resolved.isEmpty()) {
+            Log::warning(log_tag, LOGMSG(
+                "providers.gog.launch_helper `%1` is missing or not executable; "
+                "falling back to automatic Heroic/Dark1HGL discovery.")
+                .arg(helper_it->second.front()));
+        } else {
+            launchers.native_prefix = ::utils::escape_command(resolved);
+        }
     }
 
-    const QString desktop_exec = find_heroic_desktop_exec();
-    if (!desktop_exec.isEmpty())
-        return ::utils::escape_command(desktop_exec);
+    if (launchers.native_prefix.isEmpty()) {
+        // Prefer Dark1HGL names on PATH before stock Heroic.
+        const QStringList candidates {
+            QStringLiteral("dark1hgl"),
+            QStringLiteral("Dark1HGL"),
+            QStringLiteral("heroic"),
+            QStringLiteral("Heroic"),
+        };
+        QString best_found;
+        int best_score = -1;
+        for (const QString& name : candidates) {
+            const QString found = QStandardPaths::findExecutable(name);
+            if (found.isEmpty())
+                continue;
+            const int score = score_heroic_candidate(found);
+            if (score > best_score) {
+                best_found = found;
+                best_score = score;
+            }
+        }
+        if (!best_found.isEmpty())
+            launchers.native_prefix = ::utils::escape_command(best_found);
+    }
 
-    const QString appimage = find_heroic_appimage();
-    if (!appimage.isEmpty())
-        return ::utils::escape_command(appimage);
+    if (launchers.native_prefix.isEmpty()) {
+        const QString desktop_exec = find_heroic_desktop_exec();
+        if (!desktop_exec.isEmpty())
+            launchers.native_prefix = ::utils::escape_command(desktop_exec);
+    }
 
-    // Prefer Flatpak only after native/AppImage lookups fail.
+    if (launchers.native_prefix.isEmpty()) {
+        const QString appimage = find_heroic_appimage();
+        if (!appimage.isEmpty())
+            launchers.native_prefix = ::utils::escape_command(appimage);
+    }
+
     const QString flatpak_cfg = paths::homePath()
         % QLatin1String("/.var/app/")
         % HEROIC_FLATPAK_PKG
         % QLatin1String("/config/heroic/");
     const QString flatpak_bin = QStandardPaths::findExecutable(QStringLiteral("flatpak"));
     if (QFileInfo::exists(flatpak_cfg) && !flatpak_bin.isEmpty())
-        return QLatin1String("flatpak run ") % HEROIC_FLATPAK_PKG;
+        launchers.flatpak_prefix = QLatin1String("flatpak run ") % HEROIC_FLATPAK_PKG;
 
-    Log::warning(log_tag, LOGMSG(
-        "Heroic/Dark1HGL launcher not found on PATH, desktop entries, common AppImage dirs, or Flatpak. "
-        "Set providers.gog.launch_helper to your Heroic/Dark1HGL binary or AppImage. "
-        "Skipping Heroic GOG import."));
-    return {};
+    if (launchers.native_prefix.isEmpty() && launchers.flatpak_prefix.isEmpty()) {
+        Log::warning(log_tag, LOGMSG(
+            "Heroic/Dark1HGL launcher not found on PATH, desktop entries, common AppImage dirs, or Flatpak. "
+            "Set providers.gog.launch_helper to your Heroic/Dark1HGL binary or AppImage. "
+            "Skipping Heroic GOG import."));
+    }
+
+    return launchers;
+}
+
+bool is_flatpak_heroic_root(const QString& root)
+{
+    const QString marker = QStringLiteral("/.var/app/") + HEROIC_FLATPAK_PKG;
+    return root.contains(marker);
+}
+
+QString launch_prefix_for_root(const HeroicLaunchers& launchers, const QString& root)
+{
+    if (is_flatpak_heroic_root(root) && !launchers.flatpak_prefix.isEmpty())
+        return launchers.flatpak_prefix;
+    return launchers.native_prefix;
 }
 
 QStringList heroic_config_roots()
@@ -295,6 +445,17 @@ QString read_goggame_info_name(const QString& install_path, const QString& prefe
         return !name_out->isEmpty() || !id_out->isEmpty();
     };
 
+    auto maybe_set_id = [o_id](const QString& id) {
+        if (!o_id || id.isEmpty())
+            return;
+        if (o_id->isEmpty()) {
+            *o_id = id;
+            return;
+        }
+        if (looks_numeric_gog_id(id) && !looks_numeric_gog_id(*o_id))
+            *o_id = id;
+    };
+
     // Prefer goggame-<preferred_id>.info when available.
     if (!preferred_id.isEmpty()) {
         for (const QFileInfo& finfo : info_files) {
@@ -303,8 +464,7 @@ QString read_goggame_info_name(const QString& install_path, const QString& prefe
                 QString name;
                 QString id;
                 if (parse_info(finfo, &name, &id)) {
-                    if (o_id && o_id->isEmpty() && !id.isEmpty())
-                        *o_id = id;
+                    maybe_set_id(id);
                     if (!name.isEmpty())
                         return name;
                 }
@@ -329,16 +489,16 @@ QString read_goggame_info_name(const QString& install_path, const QString& prefe
             continue;
 
         if (!preferred_id.isEmpty() && id == preferred_id) {
-            if (o_id && o_id->isEmpty())
-                *o_id = id;
+            maybe_set_id(id);
             if (!name.isEmpty())
                 return name;
         }
 
         if (fallback_name.isEmpty() && !name.isEmpty()) {
             fallback_name = name;
-            if (o_id && o_id->isEmpty() && !id.isEmpty())
-                *o_id = id;
+            maybe_set_id(id);
+        } else {
+            maybe_set_id(id);
         }
     }
 
@@ -347,9 +507,10 @@ QString read_goggame_info_name(const QString& install_path, const QString& prefe
 
 QString build_heroic_launch_cmd(const QString& launch_prefix, const QString& app_name)
 {
+    const QString encoded = QString::fromUtf8(QUrl::toPercentEncoding(app_name));
     const QString raw = launch_prefix
         % QLatin1String(" --no-gui heroic://launch/gog/")
-        % app_name;
+        % encoded;
     return wrap_clean_env(raw);
 }
 
@@ -358,14 +519,18 @@ void append_heroic_entries(
     const HashMap<QString, std::vector<QString>>& options,
     const QString& log_tag)
 {
-    const QString launch_prefix = find_heroic_launch_prefix(options, log_tag);
-    if (launch_prefix.isEmpty())
+    const HeroicLaunchers launchers = find_heroic_launchers(options, log_tag);
+    if (launchers.native_prefix.isEmpty() && launchers.flatpak_prefix.isEmpty())
         return;
 
     const QStringList roots = heroic_config_roots();
     QSet<QString> seen_keys;
 
     for (const QString& root : roots) {
+        const QString launch_prefix = launch_prefix_for_root(launchers, root);
+        if (launch_prefix.isEmpty())
+            continue;
+
         const QString installed_path = root + QStringLiteral("/gog_store/installed.json");
         QFile installed_file(installed_path);
         if (!installed_file.open(QFile::ReadOnly | QFile::Text))
@@ -414,6 +579,7 @@ void append_heroic_entries(
             if (name.isEmpty())
                 name = app_name;
 
+            // Keep install_path as filepath identity even when missing (unique per game).
             QString exe = install_path;
             const QString relative_exe = normalize_install_path(obj.value(QLatin1String("executable")).toString());
             if (!path_missing && !relative_exe.isEmpty()) {
@@ -421,26 +587,29 @@ void append_heroic_entries(
                 if (QFileInfo::exists(candidate))
                     exe = candidate;
             }
-            // Stable existing path for unmounted installs so registration still has an identity.
-            if (path_missing)
-                exe = installed_path;
+
+            const QString workdir = path_missing ? paths::homePath() : install_path;
 
             entries.emplace_back(
                 std::move(id),
                 std::move(name),
                 std::move(exe),
                 build_heroic_launch_cmd(launch_prefix, app_name),
-                install_path);
+                workdir);
         }
     }
 }
 
 void dedupe_entries_by_gog_id(std::vector<GogEntry>& entries)
 {
-    // One entry per GOG id. Prefer Heroic launches (Proton path) over native start.sh.
+    // One entry per GOG id. Prefer usable installs; when both usable prefer native start.sh.
     HashMap<QString, size_t> id_index;
     std::vector<GogEntry> out;
     out.reserve(entries.size());
+
+    auto is_usable = [](const GogEntry& entry) -> bool {
+        return QFileInfo::exists(entry.exe);
+    };
 
     for (GogEntry& entry : entries) {
         if (entry.id.isEmpty()) {
@@ -456,12 +625,24 @@ void dedupe_entries_by_gog_id(std::vector<GogEntry>& entries)
         }
 
         GogEntry& existing = out[it->second];
-        const bool entry_heroic = is_heroic_launch(entry.launch_cmd);
-        const bool existing_heroic = is_heroic_launch(existing.launch_cmd);
-        if (entry_heroic && !existing_heroic) {
-            existing = std::move(entry);
+        const bool entry_ok = is_usable(entry);
+        const bool existing_ok = is_usable(existing);
+
+        if (entry_ok != existing_ok) {
+            if (entry_ok)
+                existing = std::move(entry);
+            continue;
         }
-        // else keep existing (already Heroic, or both native)
+
+        if (entry_ok && existing_ok) {
+            const bool entry_heroic = is_heroic_launch(entry.launch_cmd);
+            const bool existing_heroic = is_heroic_launch(existing.launch_cmd);
+            if (!entry_heroic && existing_heroic)
+                existing = std::move(entry);
+            continue;
+        }
+
+        // Both unusable: keep the first entry.
     }
 
     entries = std::move(out);
@@ -527,7 +708,7 @@ std::vector<GogEntry> find_game_entries(
                 QString(),
                 dir_it.fileName(),
                 launcher_path,
-                ::utils::escape_command(launcher_path),
+                wrap_clean_env(::utils::escape_command(launcher_path)),
                 dir_it.filePath(),
             };
 
