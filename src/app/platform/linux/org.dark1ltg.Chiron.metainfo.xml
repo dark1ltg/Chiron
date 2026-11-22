@@ -11,6 +11,12 @@
   </description>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.2.1" date="2026-11-22">
+      <description>
+        <p>More reliable Linux GOG launching from the AppImage: cleaner game startups, better Heroic/Dark1HGL helper picking, and fixes for missing or duplicate installs.</p>
+      </description>
+      <url>https://github.com/dark1ltg/Chiron/releases/tag/v0.2.1</url>
+    </release>
     <release version="0.2.0" date="2026-11-22">
       <description>
         <p>Hardened Linux GOG/Heroic discovery and launch, AppImage packaging, and first public Chiron release notes.</p>

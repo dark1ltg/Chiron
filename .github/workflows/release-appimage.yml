@@ -12,9 +12,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version without v prefix (e.g. 0.2.0)'
+        description: 'Release version without v prefix (e.g. 0.2.1)'
         required: true
-        default: '0.2.0'
+        default: '0.2.1'
 
 permissions:
   contents: write
@@ -92,7 +92,7 @@ jobs:
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
           name: Chiron ${{ steps.ver.outputs.version }}
-          body_path: CHANGELOG.md
+          body_path: .github/release-notes.md
           files: |
             dist/Chiron-*-x86_64.AppImage
           fail_on_unmatched_files: true
