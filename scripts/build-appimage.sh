@@ -18,7 +18,7 @@ JOBS="${JOBS:-$(nproc)}"
 QT_PREFIX="/opt/${QT_VERSION}_${QT_TARGET}"
 SDL_PREFIX="/opt/SDL2-${SDL_VERSION}"
 
-log() { printf '==> %s\n' "$*"; }
+log() { printf '==> %s\n' "$*" >&2; }
 
 need_cmd() {
   command -v "$1" >/dev/null 2>&1 || {
