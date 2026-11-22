@@ -39,6 +39,28 @@ providers.gog.directories: /path/to/extra/gog/root
 providers.gog.launch_helper: /path/to/Dark1HGL.AppImage
 ```
 
+## Themes (Pegasus-compatible)
+
+The AppImage is read-only — do **not** put themes inside it, and do **not** use `~/.config/pegasus-frontend/…` (that’s upstream). Chiron loads themes from:
+
+```text
+~/.config/chiron/themes/<ThemeName>/
+├── theme.cfg
+└── theme.qml
+```
+
+1. Download a [Pegasus theme](https://pegasus-frontend.org/themes/)
+2. Extract so `theme.qml` sits directly in that theme folder (no extra nesting)
+3. `mkdir -p ~/.config/chiron/themes && mv /path/to/ThemeName ~/.config/chiron/themes/`
+4. Restart Chiron → **Settings → Theme** → select it
+
+Already have Pegasus themes installed? Symlink instead of copying:
+
+```sh
+mkdir -p ~/.config/chiron/themes
+ln -s ~/.config/pegasus-frontend/themes/SomeTheme ~/.config/chiron/themes/SomeTheme
+```
+
 ## Build
 
 ```sh
