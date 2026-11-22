@@ -2,6 +2,22 @@
 
 All notable changes to **Chiron** are documented here.
 
+## [Unreleased]
+
+### Fixed
+
+Linux GOG import / launch (second pass):
+
+- Sanitize AppImage env for native `~/GOG Games` `start.sh` launches, not only Heroic
+- Give each unmounted Heroic install a unique filepath identity (no more one shared `installed.json`)
+- Match Flatpak vs native/Dark1HGL launch helpers to the config root the game came from
+- Ignore wrapper tokens (`env`, `sh`, …) when reading Heroic `.desktop` Exec lines
+- Use a real workdir (`$HOME`) when the Heroic install path is missing
+- Prefer a working native `start.sh` over Heroic when both exist for the same GOG ID; replace missing/broken installs with usable ones
+- Validate `providers.gog.launch_helper` exists and is executable
+- Prefer Dark1HGL / newer AppImages when several Heroic-like AppImages are found
+- Prefer numeric GOG product IDs from `goggame-*.info` for metadata; percent-encode `appName` in `heroic://` URLs
+
 ## [0.2.0] — 2026-11-22
 
 ### Added
