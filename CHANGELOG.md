@@ -2,6 +2,13 @@
 
 All notable changes to **Chiron** are documented here.
 
+## [0.2.3] — 2026-11-23
+
+### Changed
+
+- Prefer Dark1HGL AppImages (`Heroic-*-gog.*`, `dark1hgl*`) over system-packaged Heroic for GOG launch
+- Prefer Dark1HGL config dirs when reading `gog_store/installed.json` so Chiron and Dark1HGL share the same install list
+
 ## [0.2.2] — 2026-11-22
 
 ### Changed

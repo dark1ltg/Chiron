@@ -11,6 +11,12 @@
   </description>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.2.3" date="2026-11-23">
+      <description>
+        <p>Prefer Dark1HGL AppImages over system Heroic so GOG library and launch stay in sync.</p>
+      </description>
+      <url>https://github.com/dark1ltg/Chiron/releases/tag/v0.2.3</url>
+    </release>
     <release version="0.2.2" date="2026-11-22">
       <description>
         <p>Boot splash and opening UI now use Chiron branding instead of Pegasus.</p>

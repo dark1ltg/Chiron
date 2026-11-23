@@ -32,11 +32,11 @@ Grab the AppImage from [Releases](https://github.com/dark1ltg/Chiron/releases/la
 
 ## GOG
 
-Reads `~/GOG Games` and Heroic/Dark1HGL `gog_store/installed.json`, then launches with `heroic://launch/gog/<appName>` (PATH, desktop entry, common AppImage dirs, or Flatpak). From **0.2.1**, launches strip AppImage library overrides for both native and Heroic titles, Flatpak vs native helpers follow the config they came from, and duplicate / missing installs are handled more carefully.
+Reads `~/GOG Games` and Heroic/Dark1HGL `gog_store/installed.json`, then launches with `heroic://launch/gog/<appName>`. Chiron prefers a **Dark1HGL AppImage** (for example `Heroic-*-gog.*.AppImage` in `~/Applications`, `~/AppImages`, `~/Downloads`, …) over a system-packaged Heroic, so library and launch stay on the same helper. Set a path explicitly if needed:
 
 ```
 providers.gog.directories: /path/to/extra/gog/root
-providers.gog.launch_helper: /path/to/Dark1HGL.AppImage
+providers.gog.launch_helper: /path/to/Heroic-2.22.5-gog.7-linux-x86_64.AppImage
 ```
 
 ## Themes (Pegasus-compatible)
@@ -64,7 +64,7 @@ ln -s ~/.config/pegasus-frontend/themes/SomeTheme ~/.config/chiron/themes/SomeTh
 ## Build
 
 ```sh
-VERSION=0.2.2 ./scripts/build-appimage.sh   # → dist/Chiron-*-x86_64.AppImage
+VERSION=0.2.3 ./scripts/build-appimage.sh   # → dist/Chiron-*-x86_64.AppImage
 ```
 
 From source: `git submodule update --init && cmake -B build && cmake --build build` (Qt 5.15+, SDL2). CI builds on tag push / `workflow_dispatch` via [`.github/workflows/release-appimage.yml`](.github/workflows/release-appimage.yml).
