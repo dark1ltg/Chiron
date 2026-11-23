@@ -30,6 +30,7 @@
 #endif
 
 #include <QDir>
+#include <QProcessEnvironment>
 #include <QUrl>
 #include <QRegularExpression>
 
@@ -243,6 +244,36 @@ void ProcessLauncher::runProcess(const QString& command, const QStringList& args
     m_process->setProcessChannelMode(QProcess::ForwardedChannels);
     m_process->setInputChannelMode(QProcess::ForwardedInputChannel);
     m_process->setWorkingDirectory(workdir);
+
+#ifdef Q_OS_LINUX
+    // Chiron ships as an AppImage. Child launchers (Dark1HGL AppImage, Proton,
+    // native GOG start.sh) inherit LD_LIBRARY_PATH/APPDIR/etc. and then fail
+    // silently or misbehave. Strip the AppImage/Qt overrides for every child.
+    {
+        QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+        const QStringList drop {
+            QStringLiteral("LD_LIBRARY_PATH"),
+            QStringLiteral("LD_PRELOAD"),
+            QStringLiteral("QT_PLUGIN_PATH"),
+            QStringLiteral("QT_QPA_PLATFORM_PLUGIN_PATH"),
+            QStringLiteral("APPDIR"),
+            QStringLiteral("APPIMAGE"),
+            QStringLiteral("ARGV0"),
+            QStringLiteral("PYTHONHOME"),
+            QStringLiteral("PYTHONPATH"),
+            QStringLiteral("PERLLIB"),
+        };
+        for (const QString& key : drop)
+            env.remove(key);
+        // Help nested AppImages when FUSE is flaky inside another AppImage.
+        if (command.endsWith(QLatin1String(".AppImage"), Qt::CaseInsensitive)
+            || args.join(QChar(' ')).contains(QLatin1String(".AppImage"), Qt::CaseInsensitive)) {
+            env.insert(QStringLiteral("APPIMAGE_EXTRACT_AND_RUN"), QStringLiteral("1"));
+        }
+        m_process->setProcessEnvironment(env);
+    }
+#endif
+
     m_process->start(command, args, QProcess::ReadOnly);
     m_process->waitForStarted(-1);
 

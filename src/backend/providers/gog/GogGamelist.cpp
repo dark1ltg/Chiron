@@ -114,16 +114,6 @@ bool looks_numeric_gog_id(const QString& value)
     return re.match(value).hasMatch();
 }
 
-QString wrap_clean_env(const QString& command)
-{
-    // Drop AppImage/Qt library overrides so Heroic/Proton/native GOG use the host toolchain.
-    return QStringLiteral(
-               "env -u LD_LIBRARY_PATH -u LD_PRELOAD -u QT_PLUGIN_PATH "
-               "-u QT_QPA_PLATFORM_PLUGIN_PATH -u APPDIR -u APPIMAGE -u ARGV0 "
-               "-u PYTHONHOME -u PYTHONPATH -u PERLLIB ")
-        % command;
-}
-
 bool is_wrapper_token(const QString& token)
 {
     const QString base = QFileInfo(token).fileName().toLower();
@@ -527,10 +517,21 @@ QString read_goggame_info_name(const QString& install_path, const QString& prefe
 QString build_heroic_launch_cmd(const QString& launch_prefix, const QString& app_name)
 {
     const QString encoded = QString::fromUtf8(QUrl::toPercentEncoding(app_name));
-    const QString raw = launch_prefix
-        % QLatin1String(" --no-gui heroic://launch/gog/")
-        % encoded;
-    return wrap_clean_env(raw);
+    // gui=false is honored by Heroic/Dark1HGL protocol handling even when a
+    // second instance only forwards argv to an already-running Dark1HGL.
+    const QString url = QLatin1String("heroic://launch/gog/")
+        % encoded
+        % QLatin1String("?gui=false");
+
+    // Nested AppImage→AppImage launches (Chiron AppImage starting Dark1HGL
+    // AppImage) often fail FUSE mounts; extract-and-run avoids a silent no-op.
+    const bool helper_is_appimage = launch_prefix.contains(QLatin1String(".AppImage"), Qt::CaseInsensitive);
+    const QString flags = helper_is_appimage
+        ? QLatin1String(" --appimage-extract-and-run --no-gui ")
+        : QLatin1String(" --no-gui ");
+
+    // Env sanitization is done in ProcessLauncher for the child process.
+    return launch_prefix % flags % url;
 }
 
 void append_heroic_entries(
@@ -608,12 +609,14 @@ void append_heroic_entries(
                     exe = candidate;
             }
 
+            // Workdir is for starting Dark1HGL itself, not the Windows/Proton
+            // game tree — Proton prefixes stay inside Dark1HGL/gogdl.
             entries.emplace_back(
                 std::move(id),
                 std::move(name),
                 std::move(exe),
                 build_heroic_launch_cmd(launch_prefix, app_name),
-                path_missing ? paths::homePath() : install_path);
+                paths::homePath());
         }
     }
 }
@@ -726,7 +729,7 @@ std::vector<GogEntry> find_game_entries(
                 QString(),
                 dir_it.fileName(),
                 launcher_path,
-                wrap_clean_env(::utils::escape_command(launcher_path)),
+                ::utils::escape_command(launcher_path),
                 dir_it.filePath(),
             };
 

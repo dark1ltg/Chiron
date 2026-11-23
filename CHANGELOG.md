@@ -2,7 +2,14 @@
 
 All notable changes to **Chiron** are documented here.
 
+## [0.2.4] — 2026-11-23
+
+### Fixed
+
+- GOG/Dark1HGL launch from Chiron: run helper AppImages with `--appimage-extract-and-run`, pass `heroic://…?gui=false`, start Dark1HGL with `$HOME` as cwd, and strip Chiron AppImage env vars in `ProcessLauncher` so Proton prefixes from Dark1HGL actually get used instead of a silent no-op
+
 ## [0.2.3] — 2026-11-23
+
 
 ### Changed
 

@@ -1,24 +1,19 @@
-## Chiron 0.2.3
+## Chiron 0.2.4
 
-Chiron now prefers your **Dark1HGL AppImage** over a system-installed Heroic package, so GOG library and launch stay on the same helper.
+Games that show up in both Dark1HGL and Chiron should launch again. Pressing Launch now hands off to Dark1HGL (no GUI) with your existing Proton prefixes — Chiron is just the frontend.
 
-### What’s new
+### What’s fixed
 
-- Looks for Dark1HGL AppImages first (including names like `Heroic-2.22.5-gog.7-linux-x86_64.AppImage`)
-- Prefers Dark1HGL config folders when reading installed GOG games
-- Falls back to system Heroic / Flatpak only if no Dark1HGL AppImage is found
-
-Put the AppImage in a common spot (`~/Applications`, `~/AppImages`, `~/Downloads`, …) or set:
-
-```
-providers.gog.launch_helper: /path/to/Heroic-2.22.5-gog.7-linux-x86_64.AppImage
-```
+- Nested AppImage launch: Dark1HGL AppImages start with `--appimage-extract-and-run` so they don’t silently fail under Chiron’s AppImage
+- Headless handoff: launch URL includes `?gui=false` and `--no-gui` so Dark1HGL stays in the background
+- Working directory is your home folder (not the game install tree), so Dark1HGL/Proton find their usual config and prefixes
+- Child processes no longer inherit Chiron’s AppImage library paths (`LD_LIBRARY_PATH`, `APPDIR`, …)
 
 ### Download
 
-`Chiron-0.2.3-x86_64.AppImage`
+`Chiron-0.2.4-x86_64.AppImage`
 
 ```sh
-chmod +x Chiron-0.2.3-x86_64.AppImage
-./Chiron-0.2.3-x86_64.AppImage
+chmod +x Chiron-0.2.4-x86_64.AppImage
+./Chiron-0.2.4-x86_64.AppImage
 ```
